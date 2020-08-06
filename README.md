@@ -44,12 +44,10 @@ This package helps you use S3 easily. You can use following functions.
 
 * [Save Cache](#save_cache)
 * [Load Cache](#load_cache)
-* [List Cache](#list_cache)
 
 **Others**
 
-* [Save URI](#save_uri)
-* [List Directory Names](#list_directory_names)
+* [List Directory Names](#listdir)
 
 ## 🏁 Getting Started <a name = "getting_started"></a>
 
@@ -164,6 +162,29 @@ The saved path is as follows.
 default/Your Service Name/Y-M-D/Your File Path
 ```
 
+**Examples**
+
+```python
+data = {"name": "apple", "price": "120"}
+options = {
+        "public": True,
+        "ymd": False,
+        "compress_type": "gzip"
+    }
+url = es.save("food/apple.json", data,
+    options=options)
+
+print(url)
+```
+
+result:
+
+* If you want check file, check your bucket in [S3 console](https://s3.console.aws.amazon.com/s3/home).
+
+```
+https://test-bucket-725.s3.ap-northeast-2.amazonaws.com/default/items/food/apple.json
+```
+
 **Parameters**
 
 * `(required) path`: str
@@ -206,49 +227,254 @@ default/Your Service Name/Y-M-D/Your File Path
     }
     ```
 
+**Returns**
+
+* URL of saved file : `str`
+
+
+### 🌱 Load <a name="load"></a>
+
+Use this function to load data from S3. 
+
+The loaded path is as follows.
+
+```
+default/Your Service Name/Your File Path
+```
+
 **Examples**
 
 ```python
-data = {"name": "apple", "price": "120"}
-options = {
-        "public": True,
-        "ymd": True,
-        "compress_type": "gzip"
-    }
-url = es.save("food/apple.json", data,
-    options=options)
-
-print(url)
+>>> data = es.load("food/apple.json")
+>>> print(data)
+{'name': 'apple', 'price': '120'}
 ```
 
-result:
+**Parameters**
 
-* If you want check file, check your bucket in [S3 console](https://s3.console.aws.amazon.com/s3/home).
+* `(required) path`: str
 
-```
-https://test-bucket-725.s3.ap-northeast-2.amazonaws.com/default/items/2020-08-06/food/apple.json
-```
+    ```
+    foo/bar/hello.json
+    ```
 
 **Returns**
 
-* URL of saved file: `str`
+* loaded data : `dict` | `list` | `str`
 
-<!-- **Default**
+### 🌱 List <a name="list"></a>
 
-* [Save](#save)
-* [Load](#load)
-* [List](#list)
+Use this function to list directory from S3
 
-**Cache**
+The list path is as follows.
 
-* [Save Cache](#save_cache)
-* [Load Cache](#load_cache)
-* [List Cache](#list_cache)
+```
+default/Your Service Name/Your Files Path
+```
 
-**Others**
+**Examples**
 
-* [Save URI](#save_uri)
-* [List Directory Names](#list_directory_names) -->
+```python
+>>> print(es.list_objects("food/"))
+['default/items/food/apple.json']
+
+>>> print(es.list_objects("food/", True))
+[{'key': 'default/items/food/apple.json', 'data': {'name': 'apple', 'price': '120'}}]
+```
+
+**Parameters**
+
+* `(required) path`: str
+
+    ```
+    foo/bar/
+    ```
+
+* `load`: bool (default: False)
+
+    if this value set `True`, the listed files are loaded.
+
+**Returns**
+
+* if `load` parameter is `True`, return list of `paths`: `list`
+
+* if `load` parameter is `False`, return list of `paths` and loaded `datas`: `list`
+
+### 🌱 Save Cache <a name="save_cache"></a>
+
+Use this function to save data that uses the cache.
+
+Use it when the cost to process is greater than the cost to save and load in S3. Click [HERE](#cache_ecample) for details.
+
+The save cache path is as follows.
+
+```
+cache/Your Service Name/Your File Path
+```
+
+**Examples**
+
+with cache_save you can see that file path starts with `cache/...`
+
+```python
+>>> url = es.save_cache("food/apple.json", {"name": "apple", "price": "120"}, 10)
+
+>>> print(url)
+
+https://test-bucket-725.s3.ap-northeast-2.amazonaws.com/cache/items/food/apple.json
+```
+
+If open saved file, You can see that it is saved in the format below. Click [HERE](#load_cache) for more information.
+
+```python
+{
+    "value": {
+        "name": "apple",
+        "price": "120"
+    },
+    "cache_time": 10,
+    "put_time": 1596727712.0505128
+}
+```
+
+
+**Parameters**
+
+* `(required) path`: str
+
+    ```
+    foo/bar/hello.json
+    ```
+
+* `(required) value`: dict | list | str | bytes | int | float | ...
+
+    ```python
+    {"hello": "world", "yellow", "banana"}
+    ```
+
+* `(required) cache_time`: int
+    
+    Input the number of seconds you want to cache.
+
+    ```python
+    10
+    ```
+
+**Returns**
+
+* URL of saved file : `str`
+
+### 🌱 Load Cache <a name="load_cache"></a>
+
+Use this function to load cache data from S3.
+
+Use it when the cost to process is greater than the cost to save and load in S3. See the [example below](#cache_ecample) for details.
+
+The loaded path is as follows.
+
+```
+cache/Your Service Name/Your File Path
+```
+
+<a name="cache_ecample"></a>
+
+**Examples**
+
+```python
+
+import time
+import random
+
+while True:
+    print("\n=== Press any key to get started. ===")
+    input()
+    path = "food/apple.json"
+    data = es.load_cache(path)
+
+    if data == None:
+        working_time = random.randint(0, 4)
+
+        print(f"working for {working_time} seconds ...")
+
+        time.sleep(working_time)
+
+        data = {"name": "apple", "price": "120"}
+        es.save_cache(path, data, cache_time=5)
+
+        print("working complete!")
+    else:
+        print("cached!")
+
+    print(data)
+```
+
+```bash
+=== Press any key to get started. ===
+
+working for 2 seconds ...
+working complete!
+{'name': 'apple', 'price': '120'}
+
+=== Press any key to get started. ===
+
+cached!
+{'name': 'apple', 'price': '120'}
+
+=== Press any key to get started. ===
+
+cached!
+{'name': 'apple', 'price': '120'}
+
+=== Press any key to get started. ===
+
+working for 1 seconds ...
+working complete!
+{'name': 'apple', 'price': '120'}
+
+```
+
+**Parameters**
+
+* `(required) path`: str
+
+    ```
+    foo/bar/hello.json
+    ```
+
+**Returns**
+
+* loaded data : `dict` | `list` | `str` | `None`
+
+
+### 🌱 List Directory Names <a name="listdir"></a>
+
+Use this function to list directory names.
+
+The list path is as follows.
+
+```
+default/Your Service Name/Your Directory Path
+```
+
+**Examples**
+
+```python
+>>> print(es.listdir("/"))
+
+['default/items/2020-08-06/food', 'default/items/2020-08-07/food', 'default/items/food']
+```
+
+**Parameters**
+
+* `(required) path`: str
+
+    ```
+    foo/bar/
+    ```
+
+**Returns**
+
+list of directory names: `list`
 
 ## 🎉 Acknowledgements <a name = "acknowledgement"></a>
 

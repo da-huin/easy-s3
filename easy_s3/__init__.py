@@ -1,3 +1,4 @@
+import uuid
 import gzip
 import time
 import random
@@ -9,11 +10,38 @@ import mimetypes
 import boto3
 
 class EasyS3():
+    """
+    This package helps you use S3 easily. You can use following functions.
 
-    def __init__(self, bucket_name, service_name, region_name=None, aws_access_key_id=None, aws_secret_access_key=None):
-        """
-        S3를 파일을 핸들링하는 것처럼 쉽게 사용 할 수 있게 해주는 모듈입니다. 파일 리스트 읽기, 파일 쓰기, 파일 읽기 등의 기능이 포함되어 있습니다.
-        """
+    Parameters
+    ----------
+
+    * `bucket_name`: str
+
+        Your Bucket Name
+
+    * `service_name`: str
+
+        The service name serves as a detailed classification within the bucket.
+        In this situaion, accounts and orders and items are service name.
+        1. default/accounts/Your File Path
+        2. default/orders/Your File Path
+        3. default/items/Your File Path        
+
+    * `region_name`: str
+
+        Your Region Name
+
+    * `aws_access_key_id`: str
+
+        Your AWS ACCESS KEY ID
+
+    * `aws_secret_access_key`: str
+
+        Your AWS SECRET ACCESS KEY
+    """
+
+    def __init__(self, bucket_name: str, service_name: str, region_name: str=None, aws_access_key_id: str=None, aws_secret_access_key: str=None):
 
         self.bucket_name = bucket_name
         self.service_name = service_name
@@ -26,143 +54,382 @@ class EasyS3():
             region_name=region_name
         )
 
-    def make_bucket(self, bucket_name):
-        """
-        버킷을 만들어주는 함수입니다.
-        """
-        buckets = [bucket["Name"]
-                   for bucket in self._s3_client.list_buckets()["Buckets"]]
+    def save(self, path: str, value, options: dict={}):
+        """Use this function to save data into S3. 
+        
+        The saved path is as follows.
 
-        if not bucket_name in buckets:
-            self._s3_client.create_bucket(
-                Bucket=bucket_name,
-                CreateBucketConfiguration={
-                    "LocationConstraint": self.region_name
-                }
-            )
+        `default/Your Service Name/Y-M-D/Your File Path`
 
-    # SAVE
-    def save(self, path, value, options={}):
-        """
-            options
-                public (Boolean, default: False)
-                ymd (Boolean, default: False)
-                compress_type:
-                    gzip
+        Parameters
+        ----------
+        * `(required) path`: str
+
+            ```
+            foo/bar/hello.json
+            ```
+
+        * `(required) value`: dict | list | str | bytes | int | float | ...
+
+            ```python
+            {"hello": "world", "yellow", "banana"}
+            ```
+
+        * `options`: dict
+            
+            Parameters
+            
+            * `public`: bool (default: False)
+                
+                if this value is True, anyone can access it.
+
+            * `ymd`: bool (default: False)
+
+                if this value is True, ymd is entered automatically. 
+
+                ```
+                default/Your Service Name/20-08-24/Your File Path
+                ```
+
+            * `compress_type`: str (default: None)
+
+                currently only gzip is supported.
+
+            ```python
+            {
+                "public": True,
+                "ymd": True,
+                "compress_type": "gzip"
+            }
+            ```
+
+        Returns
+        -------
+
+        * URL of saved file : `str`   
+        
+        Examples
+        --------
+        data = {"name": "apple", "price": "120"}
+        options = {
+                "public": True,
+                "ymd": False,
+                "compress_type": "gzip"
+            }
+        url = es.save("food/apple.json", data,
+            options=options)
+
+        print(url)
+
+        result:
+
+        * If you want check file, check your bucket in [S3 console](https://s3.console.aws.amazon.com/s3/home).
+
+        ```
+        https://test-bucket-725.s3.ap-northeast-2.amazonaws.com/default/items/food/apple.json
+        ```
+
+     
         """
 
         public = options.get("public", False)
         ymd = bool(options.get("ymd", False))
         random = options.get("random", False)
         compress_type = options.get("compress_type", None)
-        full_path = self._get_full_path(path, ymd, self.service_name)
+        full_path = self._get_full_path(path, ymd)
 
-        return self._data_transform_put_file(full_path, value, public, random, compress_type=compress_type)
+        return self._put_file_with_transform(full_path, value, public, random, compress_type=compress_type)
 
-    def save_by_full_path(self, full_path, value, options={}):
-        public = options.get("public", False)
-        random = options.get("random", False)
-        compress_type = options.get("compress_type", None)
+    def load(self, path: str):
+        """
+        Use this function to load data from S3. 
 
-        return self._data_transform_put_file(full_path, value, public, random, compress_type=compress_type)
+        The loaded path is as follows.
 
-    def save_cache(self, path, value, cache_time):
+        `default/Your Service Name/Your File Path`
+
+        Parameters
+        ----------
+
+        * `(required) path`: str
+
+            ```
+            foo/bar/hello.json
+            ```
+
+        Returns
+        -------
+
+        * loaded data : `dict` | `list` | `str`
+
+        Examples
+        --------
+
+        ```python
+        >>> data = es.load("food/apple.json")
+        >>> print(data)
+        {'name': 'apple', 'price': '120'}
+        ```
+
+        """
+        full_path = self._get_full_path(path, False)
+        return self._load_file(full_path)
+
+    def save_cache(self, path: str, value, cache_time: int):
+        """
+
+        Use this function to save data that uses the cache.
+
+        Use it when the cost to process is greater than the cost to save and load in S3. 
+
+        The save cache path is as follows.
+
+        ```
+        cache/Your Service Name/Your File Path
+        ```
+
+        Parameters
+        ----------
+
+        * `(required) path`: str
+
+            ```
+            foo/bar/hello.json
+            ```
+
+        * `(required) value`: dict | list | str | bytes | int | float | ...
+
+            ```python
+            {"hello": "world", "yellow", "banana"}
+            ```
+
+        * `(required) cache_time`: int
+            
+            Input the number of seconds you want to cache.
+
+            ```python
+            10
+            ```
+
+        Returns
+        -------
+
+        * URL of saved file : `str`
+
+        Examples
+        --------
+
+        with cache_save you can see that file path starts with `cache/...`
+
+        ```python
+        >>> url = es.save_cache("food/apple.json", {"name": "apple", "price": "120"}, 10)
+
+        >>> print(url)
+
+        https://test-bucket-725.s3.ap-northeast-2.amazonaws.com/cache/items/food/apple.json
+        ```
+
+        If open saved file, You can see that it is saved in the format below. Click [HERE](#load_cache) for more information.
+
+        ```python
+        {
+            "value": {
+                "name": "apple",
+                "price": "120"
+            },
+            "cache_time": 10,
+            "put_time": 1596727712.0505128
+        }
+        ```
+
+        """        
         full_path = self._get_cache_full_path(path)
         data = self._make_cache_file(value, float(cache_time))
 
-        return self._data_transform_put_file(full_path, data, False, False)
+        return self._put_file_with_transform(full_path, data, False, False)
 
-    def save_uri(self, path, uri, options={}):
+    def load_cache(self, path: str):
         """
-            options
-                public (Boolean, default: False)
-                ymd (Boolean, default: False)
-                save_always (Boolean, default: True)
+        Use this function to load cache data from S3.
+
+        Use it when the cost to process is greater than the cost to save and load in S3.
+
+        The loaded path is as follows.
+
+        `cache/Your Service Name/Your File Path`
+
+        Parameters
+        ----------
+
+        * `(required) path`: str
+
+            ```
+            foo/bar/hello.json
+            ```
+
+        Returns
+        -------
+
+        * loaded data : `dict` | `list` | `str` | `None`  
+
+        Examples
+        --------
+
+        ```python
+
+        import time
+        import random
+
+        while True:
+            print("\n=== Press any key to get started. ===")
+            input()
+            path = "food/apple.json"
+            data = es.load_cache(path)
+
+            if data == None:
+                working_time = random.randint(0, 4)
+
+                print(f"working for {working_time} seconds ...")
+
+                time.sleep(working_time)
+
+                data = {"name": "apple", "price": "120"}
+                es.save_cache(path, data, cache_time=5)
+
+                print("working complete!")
+            else:
+                print("cached!")
+
+            print(data)
+        ```
+
+        ```bash
+        === Press any key to get started. ===
+
+        working for 2 seconds ...
+        working complete!
+        {'name': 'apple', 'price': '120'}
+
+        === Press any key to get started. ===
+
+        cached!
+        {'name': 'apple', 'price': '120'}
+
+        === Press any key to get started. ===
+
+        cached!
+        {'name': 'apple', 'price': '120'}
+
+        === Press any key to get started. ===
+
+        working for 1 seconds ...
+        working complete!
+        {'name': 'apple', 'price': '120'}
+
+        ```
+      
         """
-        save_always = options.get("save_always", True)
+        full_path = self._get_cache_full_path(path)
 
-        try:
-            resp = requests.get(uri)
-            if resp.status_code != 200:
-                raise ValueError("status code is %s." % (resp.status_code))
-
-        except Exception as e:
-            if not save_always:
-                raise Exception(e)
-            fb = str(e).encode()
-        else:
-            fb = resp.text.encode()
-
-        return self.save(path, fb, options)
-
-    def load_by_full_path(self, full_path):
-        return self._load_file(full_path)
-
-    # LOAD
-    def load(self, path):
-        full_path = self._get_full_path(path, False, self.service_name)
-        print(full_path)
-        return self._load_file(full_path)
-
-    def load_cache(self, name):
-        full_path = self._get_cache_full_path(name, self.service_name)
-
-        # 파일이 존재하는지 확인
         try:
             data = self._load_file(full_path)
         except:
             return None
 
-        # 만료되었으면 None 을 반환한다.
         if self._is_expired(data):
             return None
 
         return data["value"]
 
     # LIST
-    def list_objects(self, path, load=False):
+    def list_objects(self, path: str, load: bool=False):
+        """
+
+        Use this function to list directory names.
+
+        The list path is as follows.
+
+        `default/Your Service Name/Your Directory Path`
+
+        Parameters
+        ----------
+
+        * `(required) path`: str
+
+            ```
+            foo/bar/
+            ```
+
+        Returns
+        -------
+
+        list of directory names: `list`   
+
+        Examples
+        --------
+
+        ```python
+        >>> print(es.listdir("/"))
+
+        ['default/items/2020-08-06/food', 'default/items/2020-08-07/food', 'default/items/food']
+        ```
+     
+        """        
         result = []
         full_path = self._get_full_path(
-            path, service_name=self.service_name, kind="dir")
-        print("listing .. ", full_path)
+            path, kind="dir")
         lists = self._get_all_s3_objects(
             Delimiter=full_path, Prefix=full_path)
         for item in lists:
             if item["Size"] == 0:
                 continue
-            result.append(item)
+            result.append(item["Key"])
 
         if load:
             new_result = []
             for full_path in result:
                 new_result.append({
                     "key": full_path,
-                    "data": self.load_by_full_path(full_path)
+                    "data": self._load_file(full_path)
                 })
             result = new_result
 
         return result
 
-    def list_directory_names(self, path):
-        temp = {}
-        full_path = self._get_full_path(path, service_name=self.service_name, kind="dir")
-        for p in self.list_objects(path, service_name=self.service_name):
-            dirname = os.path.dirname(p["Key"])
-            temp[dirname] = dirname[len(full_path) + 1:]
+    def listdir(self, path: str):
+        """
+        Use this function to list directory names.
 
-            
-        result = []
-        for key in temp:
-            short_key = temp[key]
-            result.append({
-                "key": key,
-                "short_key": short_key
-            })
+        The list path is as follows.
 
-        return result
+        ```
+        default/Your Service Name/Your Directory Path
+        ```
+
+        **Parameters**
+
+        * `(required) path`: str
+
+            ```
+            foo/bar/
+            ```
+
+        **Returns**
+
+        list of directory names: `list`
+
+        **Examples**
+
+        ```python
+        >>> print(es.listdir("/"))
+
+        ['default/items/2020-08-06/food', 'default/items/2020-08-07/food', 'default/items/food']
+        ```        
+        """        
+        return list(set([os.path.dirname(fullpath) for fullpath in self.list_objects(path)]))
 
 
-    def _get_random_string(self, length=10):
+    def _get_random_string(self, length: int=10):
         random_box = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
         random_box_length = len(random_box)
         result = ""
@@ -171,7 +438,7 @@ class EasyS3():
 
         return result
         
-    def _make_cache_file(self, value, cache_time: float):
+    def _make_cache_file(self, value, cache_time: int):
         return {
             "value": value,
             "cache_time": cache_time,
@@ -201,7 +468,6 @@ class EasyS3():
             if not response.get('IsTruncated'):  # At the end of the list?
                 break
             continuation_token = response.get('NextContinuationToken')
-
 
 
     def _put_file(self, full_path, data, public, random, binary_content_type=False, compress_type=None):
@@ -312,6 +578,9 @@ class EasyS3():
         return self._make_valid_path(f"cache/{self.service_name}/{path}")
 
     def _make_parquet(self, data):
+        import pandas as pd
+        from fastparquet import write
+
         if not os.path.isdir("/tmp/parquet"):
             os.mkdir("/tmp/parquet")
         filename = f"/tmp/parquet/{uuid.uuid1()}.parquet"
@@ -319,7 +588,7 @@ class EasyS3():
         df = pd.DataFrame(data, index=range(len(data)))
         # df.to_parquet(filename, index=False, compression="GZIP")
 
-        fpwrite(filename, df, compression="GZIP")
+        write(filename, df, compression="GZIP")
 
         with open(filename, "rb") as fp:
             parquet = fp.read()
@@ -328,8 +597,7 @@ class EasyS3():
 
         return parquet
 
-
-    def _data_transform_put_file(self, full_path, value, public, random, binary_content_type=False, compress_type=None):
+    def _put_file_with_transform(self, full_path, value, public, random, binary_content_type=False, compress_type=None):
         _, ext = os.path.splitext(full_path)
 
         if ext == ".parquet":
@@ -343,4 +611,7 @@ class EasyS3():
 
         else:
             return self._put_file(full_path, value, public, random, binary_content_type=binary_content_type, compress_type=compress_type)
+
+
+
 

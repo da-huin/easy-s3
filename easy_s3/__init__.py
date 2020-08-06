@@ -4,7 +4,6 @@ import time
 import random
 import os
 import json
-import requests
 import datetime
 import mimetypes
 import boto3

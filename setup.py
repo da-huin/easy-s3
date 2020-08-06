@@ -16,7 +16,7 @@ setup(name='easy_s3',
       author_email='dahuin000@gmail.com',
       license='MIT',
       packages=find_packages(),
-      install_requires=["boto3"],
+      install_requires=["boto3", "pandas", "fastparquet"],
       classifiers=[
           'Programming Language :: Python :: 3',
     ]

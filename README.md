@@ -63,55 +63,55 @@ pip install easy_s3
 
 #### 1. Access Key required for S3 Authentication. If you don't have Access Key, Please follow below steps.
 
-1. Click below URL.
+1. **Click below URL.**
 
     https://console.aws.amazon.com/iam/home#/users
 
-2. Click `Add user` button.
+2. **Click `Add user` button.**
 
     ![add-user-1](./static/add-user-1.png)
 
-3. Input `User name` and enable `Programmatic access`.
+3. **Input `User name` and enable `Programmatic access`.**
 
     ![add-user-2](./static/add-user-2.png)
 
-4. Click `Attach existing policies directly` and Search `S3FullAccess` and check `AmazonS3FullAccess` and click `Next:Tags`.
+4. **Click `Attach existing policies directly` and Search `S3FullAccess` and check `AmazonS3FullAccess` and click `Next:Tags`.**
 
     ![add-user-3](./static/add-user-3.png)
 
-5. Click `Next:Review`
+5. **Click `Next:Review`**
 
     ![add-user-4](./static/add-user-4.png)
 
-6. click `Create user`
+6. **click `Create user`**
     ![add-user-5](./static/add-user-5.png)
 
-7. copy `Access Key ID` and `Secret access Key` to user notepad.
+7. **copy `Access Key ID` and `Secret access Key` to user notepad.**
 
     ![add-user-6](./static/add-user-6.png)
 
-8. complete!
+8. **complete!**
 
 #### 2. Bucket required for store asset in S3. Please follow below steps.
 
-1. create bucket. Please refer to URL below
+1. **create bucket. Please refer to URL below**
 
     https://docs.aws.amazon.com/AmazonS3/latest/user-guide/create-bucket.html
 
-2. Click the bucket you just created.
+2. **Click the bucket you just created.**
 
     ![enter_bucket](./static/enter_bucket.png)
 
-3. click `Permissions Tab` and `Uncheck Block all public access`, and click `Save button`.
+3. **click `Permissions Tab` and `Uncheck Block all public access`, and click `Save button`.**
 
     ![bucket_policy](./static/bucket_policy.png)
 
 
 #### 3. You need to know which region your bucket is in. If you don't know yet, Please follow below steps.
 
-1. click [HERE.](https://s3.console.aws.amazon.com/s3/home)
+1. **click [HERE.](https://s3.console.aws.amazon.com/s3/home)**
 
-2. Your URL should been changed like this. Remember that region.
+2. **Your URL should been changed like this. Remember that region.**
     * https://s3.console.aws.amazon.com/s3/home?`region=ap-northeast-2`
 
 #### 4. (Required) Create Handler

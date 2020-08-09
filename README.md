@@ -53,9 +53,13 @@ This package helps you use S3 easily. You can use following functions.
 
 ### Installing
 
+* If you want save as parquet format, install `pandas` and `fastparquet`.
+
 ```
 pip install easy_s3
 ```
+
+
 
 <a name="prerequisites"></a>
 
@@ -475,6 +479,7 @@ default/Your Service Name/Your Directory Path
 **Returns**
 
 list of directory names: `list`
+
 
 ## 🎉 Acknowledgements <a name = "acknowledgement"></a>
 

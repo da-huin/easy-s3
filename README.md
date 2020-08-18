@@ -3,7 +3,6 @@
  <img width=200px height=200px src="./static/icon.png" alt="Project logo" ></a>
  <br>
 
- 
 </p>
 
 <h3 align="center">Easy S3</h3>

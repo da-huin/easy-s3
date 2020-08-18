@@ -147,10 +147,11 @@ es = easy_s3.EasyS3(bucket_name, service_name, region_name,
 print(es)
 ```
 
-result:
-```
-<easy_s3.EasyS3 object at 0x10d966278>
-```
+* result:
+
+    ```
+    <easy_s3.EasyS3 object at 0x10d966278>
+    ```
 
 ## 🎈 Usage <a name="usage"></a>
 

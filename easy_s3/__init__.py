@@ -53,7 +53,11 @@ class EasyS3():
             region_name=region_name
         )
 
-    def save(self, path: str, value, options: dict={}):
+        if not os.path.isdir("/tmp/parquet"):
+            os.mkdir("/tmp/parquet")
+
+
+    def save(self, path: str, value, options: dict={}, is_full_path: bool=False):
         """Use this function to save data into S3. 
         
         The saved path is as follows.
@@ -101,6 +105,8 @@ class EasyS3():
                 "compress_type": "gzip"
             }
             ```
+        
+        * `is_full_path`: bool
 
         Returns
         -------
@@ -135,11 +141,12 @@ class EasyS3():
         ymd = bool(options.get("ymd", False))
         random = options.get("random", False)
         compress_type = options.get("compress_type", None)
-        full_path = self._get_full_path(path, ymd)
+        full_path = path if is_full_path else self._get_full_path(path, ymd)
+        
 
         return self._put_file_with_transform(full_path, value, public, random, compress_type=compress_type)
 
-    def load(self, path: str):
+    def load(self, path: str, is_full_path: False):
         """
         Use this function to load data from S3. 
 
@@ -156,6 +163,8 @@ class EasyS3():
             foo/bar/hello.json
             ```
 
+        * `is_full_path`: bool
+
         Returns
         -------
 
@@ -171,7 +180,10 @@ class EasyS3():
         ```
 
         """
-        full_path = self._get_full_path(path, False)
+
+
+        full_path = path if is_full_path else self._get_full_path(path, False)
+
         return self._load_file(full_path)
 
     def save_cache(self, path: str, value, cache_time: int):
@@ -504,22 +516,40 @@ class EasyS3():
 
 
     def _load_file(self, full_path):
-
+        """
+        If the extention is .parquet, you need the Fastparquet package.
+        """
         readed = self._s3_client.get_object(
             Bucket=self.bucket_name, Key=full_path)["Body"].read()
 
         _, ext = os.path.splitext(full_path)
+
         if ext == ".gz":
             readed = gzip.decompress(readed)
+            _, ext = os.path.splitext(os.path.splitext(full_path))
 
-        try:
-            encoded = readed.decode("utf-8")
+
+        if ext == ".parquet":
+            from fastparquet import ParquetFile
+
+            filename = f"/tmp/parquet/{uuid.uuid1()}.parquet"
+            with open(filename, "wb") as fp:
+                fp.write(readed)
+
+            readed = ParquetFile(filename).to_pandas()
+
+            os.unlink(filename)
+        else:
             try:
-                return json.loads(encoded)
+                encoded = readed.decode("utf-8")
+                try:
+                    readed = json.loads(encoded)
+                except:
+                    readed = encoded
             except:
-                return encoded
-        except:
-            return readed
+                pass
+
+        return readed
 
     def _to_binary(self, value):
         binary = b""
@@ -580,8 +610,6 @@ class EasyS3():
         import pandas as pd
         from fastparquet import write
 
-        if not os.path.isdir("/tmp/parquet"):
-            os.mkdir("/tmp/parquet")
         filename = f"/tmp/parquet/{uuid.uuid1()}.parquet"
 
         df = pd.DataFrame(data, index=range(len(data)))

@@ -146,7 +146,7 @@ class EasyS3():
 
         return self._put_file_with_transform(full_path, value, public, random, compress_type=compress_type)
 
-    def load(self, path: str, is_full_path: False):
+    def load(self, path: str, is_full_path: bool=False):
         """
         Use this function to load data from S3. 
 
